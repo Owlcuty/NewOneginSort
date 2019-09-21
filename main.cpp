@@ -24,7 +24,11 @@ void build_heap(int ptrarr[], char* text, int positions[], int num_elem);
 
 void heap_sort(int ptrarr[], char* text, int positions[], int num_elem);
 
-void quickSort(int ptrarr[], int positions[], char* text, int left, int right, int num_elem);
+
+bool compareStr(int ptr1, int ptr2, int positions[], char* text);
+bool backCompareStr(int ptr1, int ptr2, int positions[], char* text);
+
+void quickSort(int ptrarr[], int positions[], char* text, int left, int right, int num_elem, bool (*compare)(int ptr1, int ptr2, int positions[], char* text));
 
 int main()
 {
@@ -39,14 +43,18 @@ int main()
   char* text = inputText(OneginF, positions, num_rows);
 
   int* ptrarr = (int*)(calloc(num_rows, sizeof(*ptrarr)));
+  int* ptrarrSort = (int*)(calloc(num_rows, sizeof(*ptrarr)));
+  int* ptrarrRhyme = (int*)(calloc(num_rows, sizeof(*ptrarr)));
   set_iter(ptrarr, num_rows);
+  set_iter(ptrarrSort, num_rows);
+  set_iter(ptrarrRhyme, num_rows);
 
   printf("%i:: Num rows = %i\n", __LINE__, num_rows);
   // heap_sort(ptrarr, text, positions, num_rows);
 
-  quickSort(ptrarr, positions, text, 0, num_rows - 1, num_rows);
+  quickSort(ptrarrSort, positions, text, 0, num_rows - 1, num_rows, compareStr);
 
-  writeText(Encyclopedia, ptrarr, positions, num_rows, text);
+  writeText(Encyclopedia, ptrarrSort, positions, num_rows, text);
 
   for (int ch = 0; ch < 20; ch ++)
   {
@@ -54,9 +62,16 @@ int main()
   }
   fprintf(Encyclopedia, "\n");
 
-  fprintf(Encyclopedia, text);
+  quickSort(ptrarrRhyme, positions, text, 0, num_rows - 1, num_rows, backCompareStr);
+
+  writeText(Encyclopedia, ptrarrRhyme, positions, num_rows, text);
+
+  writeText(Encyclopedia, ptrarr, positions, num_rows, text);
 
   free(text);
+  free(ptrarr);
+  free(ptrarrSort);
+  free(ptrarrRhyme);
 
   fclose(OneginF);
   fclose(Encyclopedia);
@@ -96,6 +111,7 @@ void swap(int* a1, int* a2)
   (*a1) = (*a2);
   (*a2) = temp;
 }
+// -- Comparators -----------------------------------------------------
 
 bool compareStr(int ptr1, int ptr2, int positions[], char* text)
 {
@@ -112,13 +128,61 @@ bool compareStr(int ptr1, int ptr2, int positions[], char* text)
       {
         if (have_letter2)
         {
-          goto exit;
+          break;
         }
         return false;
       }
       return true;
     }
     if (chr2 == positions[ptr2 + 1])
+    {
+      if (have_letter2)
+      {
+        if (have_letter1)
+        {
+          break;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    have_letter1 = true;
+    have_letter2 = true;
+
+    if (text[chr1] == text[chr2])
+    {
+      chr1 ++;
+      chr2 ++;
+      continue;
+    }
+    return (toLower(text[chr1]) > toLower(text[chr2]));
+  }
+  return ((positions[ptr1 + 1] - positions[ptr1]) > (positions[ptr2 + 1] - positions[ptr2]));
+}
+
+bool backCompareStr(int ptr1, int ptr2, int positions[], char* text)
+{
+  bool have_letter1 = false;
+  bool have_letter2 = false;
+  for (int chr1 = positions[ptr1 + 1] - 1, chr2 = positions[ptr2 + 1] - 1; chr1 >= positions[ptr1] && chr2 >= positions[ptr2]; chr1 --, chr2 --)
+  {
+    while (positions[ptr1] <= chr1 && !is_letter(text[chr1])) chr1 --;
+    while (positions[ptr2] <= chr2 && !is_letter(text[chr2])) chr2 --;
+
+    if (chr1 == positions[ptr1] - 1)
+    {
+      if (have_letter1)
+      {
+        if (have_letter2)
+        {
+          goto exit;
+        }
+        return false;
+      }
+      return true;
+    }
+    if (chr2 == positions[ptr2] - 1)
     {
       if (have_letter2)
       {
@@ -136,15 +200,20 @@ bool compareStr(int ptr1, int ptr2, int positions[], char* text)
 
     if (text[chr1] == text[chr2])
     {
-      chr1 ++;
-      chr2 ++;
+      chr1 --;
+      chr2 --;
       continue;
     }
-    exit:
       return (toLower(text[chr1]) > toLower(text[chr2]));
   }
-  return ((positions[ptr1 + 1] - positions[ptr1]) > (positions[ptr2 + 1] - positions[ptr2]));
+  exit:
+    return ((positions[ptr1 + 1] - positions[ptr1]) > (positions[ptr2 + 1] - positions[ptr2]));
 }
+
+
+
+
+// --------------------------------------------------------------------
 
 // -- Reading file ----------------------------------------------------
 
@@ -163,12 +232,14 @@ int readTextRows(int positions[], FILE* text)
     cnt_rows ++;
   }
 
+  free(str);
+
   return cnt_rows;
 }
 
 char* inputText(FILE* text, int positions[], int num_rows)
 {
-  char* outtext = (char *)(calloc(positions[num_rows - 1], sizeof(*outtext)));
+  char* outtext = (char *)(calloc(positions[num_rows - 1] + 1, sizeof(*outtext)));
 
   for (int row = 1; row < num_rows; row ++)
   {
@@ -190,7 +261,7 @@ void writeText(FILE* fout, int ptrarr[], int positions[], int num_elem, char* te
 {
   for (int row = 0; row < num_elem; row ++)
   {
-    printf("%i:: Row no. %i" "; Ptrarr[%i] = %i; Pos = %i; -> %i" "\n", __LINE__, row, row, ptrarr[row], positions[ptrarr[row]], positions[ptrarr[row] + 1]);
+    // printf("%i:: Row no. %i" "; Ptrarr[%i] = %i; Pos = %i; -> %i" "\n", __LINE__, row, row, ptrarr[row], positions[ptrarr[row]], positions[ptrarr[row] + 1]);
     for (int chr = positions[ptrarr[row]]; chr < positions[ptrarr[row] + 1] - 2; chr ++)
     {
       fprintf(fout, "%c", text[chr]);
@@ -256,7 +327,7 @@ void heap_sort(int ptrarr[], char* text, int positions[], int num_elem) {
 
 // -- QSort -----------------------------------------------------------
 
-void quickSort(int ptrarr[], int positions[], char* text, int left, int right, int num_elem)
+void quickSort(int ptrarr[], int positions[], char* text, int left, int right, int num_elem, bool (*compare)(int ptr1, int ptr2, int positions[], char* text))
 {
   assert(left <= right);
   assert(right <= num_elem);
@@ -268,7 +339,7 @@ void quickSort(int ptrarr[], int positions[], char* text, int left, int right, i
 
   while (left < right)
   {
-    while (left < right && compareStr(ptrarr[right], pivot, positions, text))
+    while (left < right && compare(ptrarr[right], pivot, positions, text))
     {
       right --;
     }
@@ -278,7 +349,7 @@ void quickSort(int ptrarr[], int positions[], char* text, int left, int right, i
       // swap(&(array[left++]), &(array[right]));
     }
 
-    while (left < right && compareStr(pivot, ptrarr[left], positions, text))
+    while (left < right && compare(pivot, ptrarr[left], positions, text))
     {
       left ++;
     }
@@ -294,9 +365,9 @@ void quickSort(int ptrarr[], int positions[], char* text, int left, int right, i
   left = l_wall;
   right = r_wall;
   if (left < pivot)
-    quickSort(ptrarr, positions, text, left, pivot - 1, num_elem);
+    quickSort(ptrarr, positions, text, left, pivot - 1, num_elem, compare);
   if (right > pivot)
-    quickSort(ptrarr, positions, text, pivot + 1, right, num_elem);
+    quickSort(ptrarr, positions, text, pivot + 1, right, num_elem, compare);
 }
 
 
